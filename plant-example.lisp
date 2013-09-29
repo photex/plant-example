@@ -12,6 +12,19 @@
     (glut:display-window w)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; OpenGL helper functions
+
+(defun draw-circle (center radius)
+  (let* ((step 5)
+         (seg-max (- 360 step))
+         (trig-step 0.0174))
+    (gl:with-primitive :line-loop
+      (loop for i from 0 upto seg-max by step
+         do (let ((x (+ (aref center 0) (* radius (sin (* trig-step i)))))
+                  (y (+ (aref center 1) (* radius (cos (* trig-step i))))))
+              (gl:vertex x y 0))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; GLUT windowing
 
 (defclass viz-window (glut:window)
@@ -94,6 +107,25 @@
     (gl:color 1 0.25 0.25 0.25)
     (gl:line-width 2)
     (gl:rect -1 -1 1 1)
+
+    ;;; Draw the triangulation
+    (loop for tri in *triangles*
+       do (progn
+            ;; Draw the circumcircles
+            (gl:color 0.15 0.05 0.15 0.05)
+            (gl:line-width 1)
+            (let ((cir (slot-value tri 'circumcircle)))
+              (draw-circle (slot-value cir 'center) (slot-value cir 'radius)))
+
+            ;; Draw the graph
+            (gl:color 0 0.25 1 0.25)
+            (gl:line-width 2)
+            (gl:with-primitive :triangles
+              (let ((verts (slot-value tri 'verts)))
+                (loop for i from 0 upto 2
+                   do (let* ((vi (aref verts i))
+                             (v (aref point-set vi)))
+                        (gl:vertex (aref v 0) (aref v 1) (aref v 2))))))))
 
     ;;; Draw the points
     (gl:color 1 1 1 1)
