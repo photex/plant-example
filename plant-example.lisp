@@ -6,7 +6,8 @@
 
 
 (defun demo (num-points)
-  (let* ((*points* (lofi.tri:random-point-array num-points))
+  (let* ((*points* (lofi.tri:sort-by-x
+                    (lofi.tri:random-point-array num-points)))
          (*triangles* (lofi.tri:triangulate *points*))
          (w (make-instance 'viz-window)))
     (glut:display-window w)))
@@ -108,24 +109,28 @@
     (gl:line-width 2)
     (gl:rect -1 -1 1 1)
 
+    (gl:translate -0.5 -0.5 0.0)
+
     ;;; Draw the triangulation
     (loop for tri in *triangles*
        do (progn
             ;; Draw the circumcircles
             (gl:color 0.15 0.05 0.15 0.05)
             (gl:line-width 1)
-            (let ((cir (slot-value tri 'circumcircle)))
-              (draw-circle (slot-value cir 'center) (slot-value cir 'radius)))
+            (let ((cir (slot-value tri 'lofi.tri:circumcircle)))
+              (draw-circle (slot-value cir 'lofi.tri:center)
+                           (slot-value cir 'lofi.tri:radius)))
 
             ;; Draw the graph
             (gl:color 0 0.25 1 0.25)
             (gl:line-width 2)
             (gl:with-primitive :triangles
-              (let ((verts (slot-value tri 'verts)))
+              (let ((verts (slot-value tri 'lofi.tri:verts)))
                 (loop for i from 0 upto 2
                    do (let* ((vi (aref verts i))
-                             (v (aref point-set vi)))
-                        (gl:vertex (aref v 0) (aref v 1) (aref v 2))))))))
+                             (v (aref *points* vi)))
+                        (gl:vertex (aref v 0) (aref v 1) (aref v 2))))))
+            ))
 
     ;;; Draw the points
     (gl:color 1 1 1 1)
