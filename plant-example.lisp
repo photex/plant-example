@@ -83,7 +83,7 @@ Meant to be called from a glut window display callback."
   (gl:line-width 2)
   (draw-triangles)
 
-    ;;; Draw the points
+  ;; Draw the points
   (gl:color 1 1 1 1)
   (gl:point-size 5)  
   (draw-points))
