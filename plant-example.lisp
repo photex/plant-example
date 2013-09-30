@@ -6,6 +6,8 @@
 
 
 (defun demo (num-points)
+  "Generate a random array of `num-points' points, generate the tesselation, 
+and display it with cl-opengl and cl-glut."
   (let* ((*points* (lofi.tri:sort-by-x
                     (lofi.tri:random-point-array num-points)))
          (*triangles* (lofi.tri:triangulate *points*))
@@ -13,9 +15,19 @@
     (glut:display-window w)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; OpenGL helper functions
+;; Functions that perform the actual drawing.
+
+(defun draw-points ()
+  "Draws the currently bound *points*"
+  (gl:with-primitive :points
+    (loop for i from 0 upto (- (length *points*) 1)
+       do (let* ((p (aref *points* i))
+                 (x (aref p 0))
+                 (y (aref p 1)))
+            (gl:vertex x y 1)))))
 
 (defun draw-circle (center radius)
+  "Draws a circle given a center and a radius"
   (let* ((step 5)
          (seg-max (- 360 step))
          (trig-step 0.0174))
@@ -24,6 +36,57 @@
          do (let ((x (+ (aref center 0) (* radius (sin (* trig-step i)))))
                   (y (+ (aref center 1) (* radius (cos (* trig-step i))))))
               (gl:vertex x y 0))))))
+
+(defun draw-circumcircle (tri)
+  "Draws the circumcircle of tri"
+  (let ((cir (slot-value tri 'lofi.tri:circumcircle)))
+    (draw-circle (slot-value cir 'lofi.tri:center)
+                 (slot-value cir 'lofi.tri:radius))))
+
+(defun draw-circumcircles ()
+  "Draws all of the circumcircles of the currently bound *triangles*"
+  (loop for tri in *triangles*
+     do (draw-circumcircle tri)))
+
+(defun draw-triangle (tri)
+  "Draws a lofi.tr:triangle struct"
+  (let ((verts (slot-value tri 'lofi.tri:verts)))
+    (loop for i from 0 upto 2
+       do (let* ((vi (aref verts i))
+                 (v (aref *points* vi)))
+            (gl:vertex (aref v 0) (aref v 1) (aref v 2))))))
+
+(defun draw-triangles ()
+  "Draws the currently bound *triangles*"
+  (gl:with-primitive :triangles
+    (loop for tri in *triangles*
+       do (draw-triangle tri))))
+
+(defun draw-triangulation ()
+  "Draws the currently bound triangulation. 
+Meant to be called from a glut window display callback."
+  ;; Draw a unit rect to act as a frame of reference
+  (gl:color 1 0.25 0.25 0.25)
+  (gl:line-width 2)
+  (gl:rect -1 -1 1 1)
+
+  ;; lofi.tri point arrays are generated from 0-1
+  ;; so we just offset them a bit so that they
+  ;; are centered when drawn
+  (gl:translate -0.5 -0.5 0.0)
+
+  (gl:color 0.15 0.05 0.15 0.05)
+  (gl:line-width 1)
+  (draw-circumcircles)
+
+  (gl:color 0 0.25 1 0.25)
+  (gl:line-width 2)
+  (draw-triangles)
+
+    ;;; Draw the points
+  (gl:color 1 1 1 1)
+  (gl:point-size 5)  
+  (draw-points))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; GLUT windowing
@@ -38,7 +101,7 @@
   (:default-initargs :pos-x 100 :pos-y 100
                      :width 800 :height 800
                      :mode '(:double :rgba)
-                     :title "dtri-viz"))
+                     :title "plant-example"))
  
 (defmethod glut:display-window :before ((w viz-window))
   (gl:clear-color 0.15 0.15 0.15 0)
@@ -104,43 +167,8 @@
     (gl:matrix-mode :modelview)
     (gl:load-identity)
  
-    ;; Draw the unit grid/ground/blah/foo/bar
-    (gl:color 1 0.25 0.25 0.25)
-    (gl:line-width 2)
-    (gl:rect -1 -1 1 1)
-
-    (gl:translate -0.5 -0.5 0.0)
-
-    ;;; Draw the triangulation
-    (loop for tri in *triangles*
-       do (progn
-            ;; Draw the circumcircles
-            (gl:color 0.15 0.05 0.15 0.05)
-            (gl:line-width 1)
-            (let ((cir (slot-value tri 'lofi.tri:circumcircle)))
-              (draw-circle (slot-value cir 'lofi.tri:center)
-                           (slot-value cir 'lofi.tri:radius)))
-
-            ;; Draw the graph
-            (gl:color 0 0.25 1 0.25)
-            (gl:line-width 2)
-            (gl:with-primitive :triangles
-              (let ((verts (slot-value tri 'lofi.tri:verts)))
-                (loop for i from 0 upto 2
-                   do (let* ((vi (aref verts i))
-                             (v (aref *points* vi)))
-                        (gl:vertex (aref v 0) (aref v 1) (aref v 2))))))
-            ))
-
-    ;;; Draw the points
-    (gl:color 1 1 1 1)
-    (gl:point-size 5)  
-    (gl:with-primitive :points
-      (loop for i from 0 upto (- (length *points*) 1)
-         do (let* ((p (aref *points* i))
-                   (x (aref p 0))
-                   (y (aref p 1)))
-              (gl:vertex x y 1))))
+    ;; This is where the drawing functions are called from.
+    (draw-triangulation)
     
     (gl:flush))
   
